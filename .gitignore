@@ -1,0 +1,20 @@
+# CLion / CMake 构建输出目录
+# 必须忽略: CMakeCache.txt 里记录着本机绝对路径, 提交上去会让别人的构建直接失败
+cmake-build-*/
+build/
+
+# 编译中间文件与产物
+*.o
+*.obj
+*.d
+*.elf
+*.hex
+*.bin
+*.map
+*.su
+*.a
+
+# 编辑器与系统文件
+.vscode/
+Thumbs.db
+desktop.ini

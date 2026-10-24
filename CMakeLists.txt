@@ -1,0 +1,107 @@
+#此文件从模板自动生成! 请勿更改!
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_VERSION 1)
+cmake_minimum_required(VERSION 4.3)
+
+# specify cross-compilers and tools
+# 使用绝对路径, 不依赖 PATH 或全局环境变量。
+# 编译器三项带 if 保护: 若通过命令行 -DCMAKE_C_COMPILER=... 指定, 则尊重该值。
+if(NOT DEFINED CMAKE_C_COMPILER)
+    set(CMAKE_C_COMPILER "D:/environment/enviroment/arm/bin/arm-none-eabi-gcc.exe")
+endif()
+if(NOT DEFINED CMAKE_CXX_COMPILER)
+    set(CMAKE_CXX_COMPILER "D:/environment/enviroment/arm/bin/arm-none-eabi-g++.exe")
+endif()
+if(NOT DEFINED CMAKE_ASM_COMPILER)
+    set(CMAKE_ASM_COMPILER "D:/environment/enviroment/arm/bin/arm-none-eabi-gcc.exe")
+endif()
+# 其余工具用绝对路径强制指定, 避免从 PATH 查找失败
+set(CMAKE_AR "D:/environment/enviroment/arm/bin/arm-none-eabi-ar.exe")
+set(CMAKE_OBJCOPY "D:/environment/enviroment/arm/bin/arm-none-eabi-objcopy.exe")
+set(CMAKE_OBJDUMP "D:/environment/enviroment/arm/bin/arm-none-eabi-objdump.exe")
+set(CMAKE_SIZE "D:/environment/enviroment/arm/bin/arm-none-eabi-size.exe")
+set(SIZE ${CMAKE_SIZE})
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+
+# project settings
+project(STM32_Homework C CXX ASM)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
+
+#Uncomment for hardware floating point
+#add_compile_definitions(ARM_MATH_CM4;ARM_MATH_MATRIX_CHECK;ARM_MATH_ROUNDING)
+#add_compile_options(-mfloat-abi=hard -mfpu=fpv4-sp-d16)
+#add_link_options(-mfloat-abi=hard -mfpu=fpv4-sp-d16)
+
+#Uncomment for software floating point
+#add_compile_options(-mfloat-abi=soft)
+
+add_compile_options(-mcpu=cortex-m3 -mthumb -mthumb-interwork)
+add_compile_options(-ffunction-sections -fdata-sections -fno-common -fmessage-length=0)
+
+# uncomment to mitigate c++17 absolute addresses warnings
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-register")
+
+# Enable assembler files preprocessing
+add_compile_options($<$<COMPILE_LANGUAGE:ASM>:-x$<SEMICOLON>assembler-with-cpp>)
+
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Release")
+    message(STATUS "Maximum optimization for speed")
+    add_compile_options(-Ofast)
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+    message(STATUS "Maximum optimization for speed, debug info included")
+    add_compile_options(-Ofast -g)
+elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "MinSizeRel")
+    message(STATUS "Maximum optimization for size")
+    add_compile_options(-Os)
+else ()
+    message(STATUS "Minimal optimization, debug info included")
+    add_compile_options(-Og -g)
+endif ()
+
+include_directories(Core/Inc C:/Users/Lenovo/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy C:/Users/Lenovo/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Inc C:/Users/Lenovo/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/CMSIS/Device/ST/STM32F1xx/Include C:/Users/Lenovo/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/CMSIS/Include)
+
+add_definitions(-DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB)
+
+# 源文件收集
+file(GLOB_RECURSE SOURCES "Core/*.*")
+
+# 本地 Drivers/ 目录可能存在但为空(例如 CubeMX 未启用 "Copy only necessary library files"),
+# 所以这里按实际内容判断, 而不是只看目录是否存在。
+file(GLOB_RECURSE LOCAL_DRIVER_SOURCES "Drivers/*.*")
+if(LOCAL_DRIVER_SOURCES)
+    list(APPEND SOURCES ${LOCAL_DRIVER_SOURCES})
+endif()
+
+# 若工程内没有 HAL 实现, 则从 STM32CubeMX 仓库直接引用 HAL 源码。
+# 未启用的模块由 stm32f1xx_hal_conf.h 中的 HAL_*_MODULE_ENABLED 宏条件编译掉。
+set(_HAS_HAL_SOURCE FALSE)
+foreach(_src ${SOURCES})
+    if(_src MATCHES "stm32f1xx_hal\\.c$")
+        set(_HAS_HAL_SOURCE TRUE)
+        break()
+    endif()
+endforeach()
+if(NOT _HAS_HAL_SOURCE)
+    file(GLOB HAL_SOURCES "C:/Users/Lenovo/STM32Cube/Repository/STM32Cube_FW_F1_V1.8.7/Drivers/STM32F1xx_HAL_Driver/Src/*.c")
+    # 排除 *template.c, 避免与 Core/Src 下的实现重复定义
+    list(FILTER HAL_SOURCES EXCLUDE REGEX "_template\\.c$")
+    list(APPEND SOURCES ${HAL_SOURCES})
+endif()
+
+set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/STM32F103C8TX_FLASH.ld)
+
+add_link_options(-Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map)
+add_link_options(-mcpu=cortex-m3 -mthumb -mthumb-interwork)
+add_link_options(-T ${LINKER_SCRIPT})
+
+add_executable(${PROJECT_NAME}.elf ${SOURCES} ${LINKER_SCRIPT})
+
+set(HEX_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex)
+set(BIN_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.bin)
+
+add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
+        COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${PROJECT_NAME}.elf> ${HEX_FILE}
+        COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${PROJECT_NAME}.elf> ${BIN_FILE}
+        COMMENT "Building ${HEX_FILE}
+Building ${BIN_FILE}")
